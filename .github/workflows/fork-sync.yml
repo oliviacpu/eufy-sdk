@@ -1,0 +1,42 @@
+name: Fork sync
+
+# Daily: merge upstream's newest beta-* branch into main when main doesn't have it, verify, push and
+# release. Anything that needs a person opens the upstream-sync issue instead. See FORK.md.
+
+on:
+  schedule:
+    - cron: "17 8 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: fork-sync
+  cancel-in-progress: false
+
+jobs:
+  merge:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+    outputs:
+      merged: ${{ steps.merge.outputs.merged }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - id: merge
+        run: bash .github/fork/sync.sh
+
+  release:
+    needs: merge
+    if: needs.merge.outputs.merged == 'true'
+    uses: ./.github/workflows/fork-release.yml
