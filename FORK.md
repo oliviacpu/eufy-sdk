@@ -35,3 +35,19 @@ fitted. Its `main` is upstream's newest `beta-*` branch plus the changes listed 
 ## Changes in this fork
 
 Newest first.
+
+### HomeBase 3 recordings on a fitted drive (2026-11-21)
+
+- **What it adds:** `downloadRecording({ recording, cipherId, storagePath })`. `storagePath` is the `storage_path` the
+  station's own `history_record_info` row names. Without it nothing changes.
+- **Cause:** upstream builds every HomeBase 3 path on `/zx/emmcdata/`. A HomeBase 3 with a drive fitted stores
+  recordings under `/zx/hdd_dataN/` instead, so the station answered -111 (`no-data`) for every one of them.
+- **Change:** `homeBase3RecordingPath` takes the storage path only when it is exactly the path built for the
+  recording's own name, camera folder and month on `emmcdata` or an `hdd_dataN` volume, so a request still never
+  leaves the camera's folder; any other path rejects `invalid-recording` before anything is sent. A HomeBase 2 has one
+  volume and does not read it. `src/transport/p2p/recording-download.ts`, `command-router.ts`,
+  `src/core/contracts.ts`, `docs/live-media.md`. Tests: `recording-download.spec.ts`,
+  `recording-download-router.spec.ts`.
+- **Live (T8030 with a 500 GB SSD, 2026-11-21):** asked at `/zx/hdd_data1/CameraNN/<yyyyMM>/<name>/<name>.zxvideo`,
+  the station streamed a T8170's 8 s and a T8213's 14 s recordings in full in about 3 s each (111 and 196 frames,
+  H.265 and AAC in the clear, finish on channel 255).

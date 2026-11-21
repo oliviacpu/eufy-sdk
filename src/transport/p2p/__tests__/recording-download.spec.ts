@@ -69,6 +69,42 @@ describe("recording download", () => {
     expect(homeBase3RecordingPath(100, "20260101120000")).toBeUndefined();
   });
 
+  it("takes a HomeBase 3 storage path only when it is the recording's own path on a known volume", () => {
+    const onDrive = "/zx/hdd_data1/Camera01/202611/20261121095110/20261121095110.zxvideo";
+    expect(homeBase3RecordingPath(1, "20261121095110", onDrive)).toBe(onDrive);
+    expect(homeBase3RecordingPath(1, "20261121095110", onDrive.replace("hdd_data1", "emmcdata"))).toBe(
+      "/zx/emmcdata/Camera01/202611/20261121095110/20261121095110.zxvideo",
+    );
+    expect(
+      homeBase3RecordingPath(
+        3,
+        "20260101120000",
+        "/zx/hdd_data12/Camera03/202601/20260101120000/20260101120000.zxvideo",
+      ),
+    ).toBe("/zx/hdd_data12/Camera03/202601/20260101120000/20260101120000.zxvideo");
+    for (const storagePath of [
+      onDrive.replace("Camera01", "Camera02"),
+      onDrive.replace("hdd_data1", "hdd_data"),
+      onDrive.replace("hdd_data1", "hdd_data123"),
+      onDrive.replace("hdd_data1", "sdcard"),
+      onDrive.replace("/202611/", "/202612/"),
+      onDrive.replace("20261121095110.zxvideo", "20261121095111.zxvideo"),
+      onDrive.replace(".zxvideo", ".zxvideo/../../../../etc/passwd"),
+      "/zx/hdd_data1/../emmcdata/Camera01/202611/20261121095110/20261121095110.zxvideo",
+      "zx/hdd_data1/Camera01/202611/20261121095110/20261121095110.zxvideo",
+      `${onDrive}\n`,
+      "",
+    ]) {
+      expect(homeBase3RecordingPath(1, "20261121095110", storagePath)).toBeUndefined();
+    }
+  });
+
+  it("builds a HomeBase 2 path whatever storage path is passed, since the station has one volume", () => {
+    expect(HB2.path(2, "20260101120000", "/zx/hdd_data1/elsewhere.zxvideo")).toBe(
+      "/media/mmcblk0p1/Camera02/20260101120000.dat",
+    );
+  });
+
   it("frames the request as five zero bytes and two 128-byte strings, level-1 encrypted", () => {
     const key = Buffer.alloc(16, 3);
     const body = buildStringPairCommandPayload("/media/x.dat", "0".repeat(40), 1, key);

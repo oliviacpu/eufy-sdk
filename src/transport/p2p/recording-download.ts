@@ -79,10 +79,13 @@ export interface RecordingFrame {
 export interface RecordingStation {
   /**
    * The path the station stores the recording named `recording` of the camera on station channel `channel`
-   * under. Answers `undefined` for a name the station could not hold. The SDK builds every path from these two
-   * values, so a request never reaches outside the camera's own folder.
+   * under. `storagePath` is the path the station's own event record names for the recording, and selects the
+   * volume on a station that stores recordings on more than one; it is taken only when it is exactly the path
+   * this function builds for that volume, and a station with one volume does not read it. Answers `undefined`
+   * for a name the station could not hold and for a `storagePath` it does not take, so a request never reaches
+   * outside the camera's own folder.
    */
-  readonly path: (channel: number, recording: string) => string | undefined;
+  readonly path: (channel: number, recording: string, storagePath?: string) => string | undefined;
   /**
    * Whether the station stores a recording sealed under its event's cipher, which opens with that cipher's ECC
    * private key, or in the clear, which reads no key. The frame layouts of each are in this module's
@@ -116,7 +119,8 @@ function cameraFolder(channel: number): string | undefined {
  * The path a HomeBase 2 stores a camera's recording under: its {@link cameraFolder}, then the recording's name
  * as `yyyyMMddHHmmss` or `h265_yyyyMMddHHmmss`. Answers `undefined` for any other name, and for a channel
  * {@link cameraFolder} refuses. Both forms are digits behind one fixed prefix, so the anchored test lets no
- * `..`, slash or other character that could reach another path on the station through.
+ * `..`, slash or other character that could reach another path on the station through. The station has one
+ * volume, so a storage path is not read.
  */
 export function homeBase2RecordingPath(channel: number, recording: string): string | undefined {
   const folder = cameraFolder(channel);
@@ -125,16 +129,27 @@ export function homeBase2RecordingPath(channel: number, recording: string): stri
 }
 
 /**
- * The path a HomeBase 3 stores a camera's recording under:
- * `/zx/emmcdata/<cameraFolder>/<yyyyMM>/<name>/<name>.zxvideo`, where the name is the recording's start as
- * `yyyyMMddHHmmss`, whatever the codec, and `<yyyyMM>` is its first six digits. Answers `undefined` for any
- * other name (a codec prefix, an extension or a path included), and for a channel {@link cameraFolder}
- * refuses. The anchored test lets no character but digits through.
+ * The volumes a HomeBase 3 stores recordings on, as the first folder under `/zx`: `emmcdata`, its built-in
+ * storage, and `hdd_dataN`, a drive fitted to it (`hdd_data1` seen on a T8030 with a 500 GB SSD).
  */
-export function homeBase3RecordingPath(channel: number, recording: string): string | undefined {
+const HOME_BASE_3_VOLUME = /^\/zx\/(emmcdata|hdd_data\d{1,2})\//;
+
+/**
+ * The path a HomeBase 3 stores a camera's recording under:
+ * `/zx/<volume>/<cameraFolder>/<yyyyMM>/<name>/<name>.zxvideo`, where the name is the recording's start as
+ * `yyyyMMddHHmmss`, whatever the codec, and `<yyyyMM>` is its first six digits. The volume is `emmcdata`, or
+ * the {@link HOME_BASE_3_VOLUME} `storagePath` names when that is exactly the path built for it. Answers
+ * `undefined` for any other name (a codec prefix, an extension or a path included), for a channel
+ * {@link cameraFolder} refuses, and for any other `storagePath`. The anchored tests let no character but digits
+ * and a known volume through.
+ */
+export function homeBase3RecordingPath(channel: number, recording: string, storagePath?: string): string | undefined {
   const folder = cameraFolder(channel);
   if (!folder || !/^\d{14}$/.test(recording)) return undefined;
-  return `/zx/emmcdata/${folder}/${recording.slice(0, 6)}/${recording}/${recording}.zxvideo`;
+  const volume = storagePath === undefined ? "emmcdata" : HOME_BASE_3_VOLUME.exec(storagePath)?.[1];
+  if (!volume) return undefined;
+  const path = `/zx/${volume}/${folder}/${recording.slice(0, 6)}/${recording}/${recording}.zxvideo`;
+  return storagePath === undefined || storagePath === path ? path : undefined;
 }
 
 /**
@@ -143,7 +158,8 @@ export function homeBase3RecordingPath(channel: number, recording: string): stri
  * `T8010`, HomeBase 2: `/media/mmcblk0p1/CameraNN/<name>.dat`, sealed under the event's cipher, finish tagged
  * with channel 0, split pictures filled to {@link STATION_CHUNK_BYTES}.
  *
- * `T8030`, HomeBase 3: `/zx/emmcdata/CameraNN/<yyyyMM>/<name>/<name>.zxvideo`, in the clear, finish tagged
+ * `T8030`, HomeBase 3: `/zx/<volume>/CameraNN/<yyyyMM>/<name>/<name>.zxvideo` on its built-in `emmcdata` or a
+ * fitted drive's `hdd_dataN` ({@link homeBase3RecordingPath}), in the clear, finish tagged
  * with {@link STATION_CHANNEL}, a keyframe over 400000 bytes split at exactly 400000, a missing recording
  * answered with -111.
  */

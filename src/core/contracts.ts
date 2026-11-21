@@ -1008,12 +1008,16 @@ export interface MediaProvider {
   /**
    * Download one recording the camera's station stored. `recording` names it: the file name the station stores
    * it under, without the folder or the extension. `cipherId` is the cipher the station names for it, and is not
-   * read on a station that stores its recordings in the clear. One download runs at a time per station. Rejects with
-   * {@link RecordingDownloadError}. Optional, and absent on a camera whose station's recording download is
-   * unverified.
+   * read on a station that stores its recordings in the clear. `storagePath` is the path the station's own event
+   * record names for it (`storage_path` in `history_record_info`): a HomeBase 3 fitted with a drive stores
+   * recordings there rather than on its built-in storage, and is asked at that path when it is the recording's own
+   * path on one of the station's volumes; any other path rejects `invalid-recording`. Without it the built-in
+   * storage is asked, and a station with one volume (a HomeBase 2) does not read it. One download runs at a time
+   * per station. Rejects with {@link RecordingDownloadError}.
+   * Optional, and absent on a camera whose station's recording download is unverified.
    */
   downloadRecording?(
-    opts: { recording: string; cipherId: number; timeoutMs?: number } & AbortableCall,
+    opts: { recording: string; cipherId: number; storagePath?: string; timeoutMs?: number } & AbortableCall,
   ): Promise<RecordingDownload>;
   /**
    * Generic P2P request/reply query: send a `SET_PAYLOAD` sub-command and resolve with the reply
