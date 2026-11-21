@@ -63,6 +63,31 @@ describe("PoE camera power tier behind T8N00 (#437)", () => {
   });
 });
 
+describe("Indoor Cam S350 (T8416) power tier", () => {
+  it("classifies T8416 as wired and gives its media the wired tier", async () => {
+    const sn = "T8416P0000000001";
+    expect(cameraPowerTier(sn, BATTERY_CAPS)).toBe("wired");
+
+    const seen: string[] = [];
+    const media: MediaProvider = {
+      snapshotLive: async (opts) => {
+        seen.push(opts?.powered ?? "missing");
+        return { jpeg: Buffer.alloc(0), width: 1, height: 1 };
+      },
+      live: async (opts) => (seen.push(opts?.powered ?? "missing"), {}) as never,
+      record: async () => Buffer.alloc(0),
+    };
+    const { acts } = bind<CameraActions>(
+      "camera",
+      { channel: 2, codec: "camera", model: "T8416", paramIds: new Set<number>([1101]), capabilities: BATTERY_CAPS },
+      { media },
+    );
+    await acts.snapshotLive!();
+    await acts.live!();
+    expect(seen).toEqual(["wired", "wired"]);
+  });
+});
+
 describe("mains-only camera power tier (T84A1 Wall Light Cam S100)", () => {
   it("classifies T84A1 as wired even with the battery capability resolved", () => {
     expect(cameraPowerTier("T84A1", BATTERY_CAPS)).toBe("wired");

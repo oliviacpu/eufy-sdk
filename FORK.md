@@ -36,6 +36,16 @@ fitted. Its `main` is upstream's newest `beta-*` branch plus the changes listed 
 
 Newest first.
 
+### Indoor Cam S350 (T8416) is mains-powered (2026-11-21)
+
+- **What it changes:** the S350 takes the wired power tier: no live-media battery budget, a persistent P2P session,
+  and no battery reads.
+- **Cause:** the S350 has no cell but resolves the `battery` capability, and upstream's `MAINS_CAMERA_MODELS` doesn't
+  list it, so it was treated as a battery camera.
+- **Change:** `T8416` joins `MAINS_CAMERA_MODELS` in `src/model/capabilities/battery.ts`. Test:
+  `mains-camera-power.spec.ts`. Replaces a hand-patched `dist/index.js` the bridge install had mounted since
+  2026-10-22.
+
 ### HomeBase 3 recordings on a fitted drive (2026-11-21)
 
 - **What it adds:** `downloadRecording({ recording, cipherId, storagePath })`. `storagePath` is the `storage_path` the
