@@ -959,8 +959,9 @@ export class P2PCommandRouter {
 
   /**
    * Start one recording download, once the station's previous download has drained: the decoded recording,
-   * and when the station is done sending it. The path is `station.path(channel, opts.recording)`, and a name
-   * it refuses rejects `invalid-recording` before anything is sent. On a sealed station the cipher's ECC key
+   * and when the station is done sending it. The path is `station.path(channel, opts.recording, opts.storagePath)`,
+   * and a name or storage path it refuses rejects `invalid-recording` before anything is sent. On a sealed station
+   * the cipher's ECC key
    * is looked up, and its absence rejects `key-unavailable` before anything is sent. A station in the clear
    * reads no cipher, and `opts.cipherId` is not read.
    */
@@ -970,8 +971,15 @@ export class P2PCommandRouter {
     opts: RecordingDownloadOpts,
   ): Promise<{ recording: Promise<RecordingDownload>; drained: Promise<void> }> {
     const { session, parentSn, channel, accountId } = await this.resolveSession(sn, { signal: opts.signal });
-    const path = station.path(channel, opts.recording);
-    if (!path) throw new RecordingDownloadError("invalid-recording", `no recording named ${opts.recording}`);
+    const path = station.path(channel, opts.recording, opts.storagePath);
+    if (!path) {
+      throw new RecordingDownloadError(
+        "invalid-recording",
+        opts.storagePath === undefined
+          ? `no recording named ${opts.recording}`
+          : `no recording named ${opts.recording} at ${opts.storagePath}`,
+      );
+    }
     const eccKey = station.sealed
       ? (await this.cipherKeysFor(session, opts.cipherId, accountId, parentSn))?.ecc
       : undefined;

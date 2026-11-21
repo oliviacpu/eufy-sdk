@@ -407,9 +407,12 @@ transfer runs faster than real time: a 12.8 s recording took about 6 s on a Home
 A row of the station's recording archive (`history_record_info`, as `session.queryRecordPage` answers it on a
 HomeBase 2 and `eufy.readStationTable` on a HomeBase 3) names the recording by its `storage_path` and
 `cipher_id`. A HomeBase 3 row's `storage_path` looks like
-`/zx/emmcdata/Camera02/202601/20260101120000/20260101120000.zxvideo`, and its `cipher_id` is 0. A HomeBase 2
-archive row can name a cipher id above 24 bits, which resolves through its low byte. The same derivation gives
-the recording name and cipher id on both stations:
+`/zx/emmcdata/Camera02/202601/20260101120000/20260101120000.zxvideo`, and its `cipher_id` is 0. A HomeBase 3
+fitted with a drive stores recordings on it instead, under `/zx/hdd_data1/…` in place of `/zx/emmcdata/…`, so
+pass the row's `storage_path` as `storagePath`: the station is asked at that path when it is the recording's own
+path on `emmcdata` or an `hdd_dataN` volume, and any other path rejects with reason `invalid-recording`. A
+HomeBase 2 has one volume and does not read `storagePath`. A HomeBase 2 archive row can name a cipher id above 24 bits, which resolves through its low byte. The same
+derivation gives the recording name and cipher id on both stations:
 
 <!-- typecheck: host rows -->
 
@@ -421,6 +424,7 @@ for (const row of rows) {
   const clip = await cam?.downloadRecording?.({
     recording: path.posix.parse(row.storage_path).name,
     cipherId: row.cipher_id > 0xffffff ? row.cipher_id & 0xff : row.cipher_id,
+    storagePath: row.storage_path,
   });
 }
 ```

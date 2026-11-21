@@ -294,6 +294,39 @@ describe("recording download through the router", () => {
     }
   });
 
+  it("requests a HomeBase 3 recording on a fitted drive at the storage path its event record names", async () => {
+    vi.useFakeTimers();
+    try {
+      const { media, sent } = homeBase3();
+      const storagePath = `/zx/hdd_data1/Camera01/202601/${RECORDING}/${RECORDING}.zxvideo`;
+
+      const download = media.downloadRecording!({ recording: RECORDING, cipherId: 0, storagePath });
+      await vi.advanceTimersByTimeAsync(100);
+      const out = await download;
+
+      expect(sent).toEqual([[1024, storagePath, ACCOUNT_ID, 1]]);
+      expect(out).toMatchObject({ frames: 2, missingFrames: 0 });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("refuses a HomeBase 3 storage path that is not the recording's own path on one of its volumes", async () => {
+    const { media, sent } = homeBase3();
+
+    for (const storagePath of [
+      `/zx/hdd_data1/Camera02/202601/${RECORDING}/${RECORDING}.zxvideo`,
+      `/zx/hdd_data1/Camera01/202601/${MISSING}/${MISSING}.zxvideo`,
+      `/zx/usb/Camera01/202601/${RECORDING}/${RECORDING}.zxvideo`,
+      "/etc/passwd",
+    ]) {
+      await expect(media.downloadRecording!({ recording: RECORDING, cipherId: 0, storagePath })).rejects.toMatchObject({
+        reason: "invalid-recording",
+      });
+    }
+    expect(sent).toHaveLength(0);
+  });
+
   it("reads no cipher on a HomeBase 3 whatever cipher id the caller passes", async () => {
     const { media, getCiphers } = homeBase3();
 
